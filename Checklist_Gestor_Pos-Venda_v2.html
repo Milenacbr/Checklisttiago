@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pós-Venda · Rotina do Gestor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #FAFAF8;
+      --surface: #FFFFFF;
+      --ink: #1C1C1A;
+      --ink-soft: #6B6B66;
+      --line: #E8E6E1;
+      --accent: #2B5D4F;
+      --accent-soft: #E5EEEA;
+      --accent-mid: rgba(43,93,79,.12);
+      --warn: #B5562F;
+      --warn-soft: #F5E8E2;
+      --gold: #9A7B1E;
+      --gold-soft: #FDF6DE;
+      --radius: 14px;
+      --nav-h: 66px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      overscroll-behavior: none;
+    }
+
+    #app {
+      max-width: 480px;
+      margin: 0 auto;
+      padding-bottom: calc(var(--nav-h) + 24px);
+      min-height: 100vh;
+    }
+
+    /* ── BOTTOM NAV ─────────────────────────────── */
+    .bnav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      height: var(--nav-h);
+      background: var(--surface);
+      border-top: 1px solid var(--line);
+      display: flex;
+      z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .bnav-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      border: none;
+      background: transparent;
+      color: var(--ink-soft);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      font-family: inherit;
+      transition: color .15s;
+    }
+    .bnav-btn.active { color: var(--accent); }
+    .bnav-btn svg { width: 22px; height: 22px; }
+
+    /* ── HEADER ─────────────────────────────────── */
+    .header {
+      padding: 28px 20px 16px;
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+      border-bottom: 1px solid var(--line);
+    }
+    .eyebrow {
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .page-title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -.01em;
+      margin-bottom: 16px;
+    }
+
+    /* ── TABS (checklist) ────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 6px;
+      background: var(--accent-soft);
+      border-radius: 10px;
+      padding: 4px;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 9px 4px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      transition: background .15s;
+      font-family: inherit;
+    }
+    .tab.active { background: var(--accent); color: #fff; }
+
+    /* ── PROGRESS BAR ────────────────────────────── */
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .progress-bar {
+      flex: 1;
+      height: 6px;
+      background: var(--line);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 99px;
+      transition: width .3s ease;
+    }
+    .progress-label {
+      font-size: 12px;
+      color: var(--ink-soft);
+      font-weight: 600;
+      white-space: nowrap;
+      min-width: 44px;
+      text-align: right;
+    }
+
+    /* ── DATE LABEL ──────────────────────────────── */
+    .date-label {
+      padding: 10px 20px 0;
+      font-size: 12px;
+      color: var(--ink-soft);
+      text-transform: capitalize;
+    }
+
+    /* ── CHECKLIST CONTENT ───────────────────────── */
+    .content { padding: 16px 20px 0; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+      overflow: hidden;
+      transition: border-color .2s;
+    }
+    .card.done { border-color: var(--accent-soft); }
+
+    .card-main {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .checkbox {
+      flex-shrink: 0;
+      width: 22px; height: 22px;
+      border-radius: 7px;
+      border: 2px solid var(--line);
+      margin-top: 1px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s;
+      background: var(--surface);
+    }
+    .checkbox.checked { background: var(--accent); border-color: var(--accent); }
+    .checkbox svg { width: 13px; height: 13px; opacity: 0; transition: opacity .1s; }
+    .checkbox.checked svg { opacity: 1; }
+
+    .item-text {
+      flex: 1;
+      font-size: 14.5px;
+      line-height: 1.4;
+      font-weight: 500;
+      padding-top: 1px;
+    }
+    .item-text.done {
+      color: var(--ink-soft);
+      text-decoration: line-through;
+      text-decoration-color: var(--line);
+    }
+
+    .sub-list { padding: 0 14px 14px 48px; display: flex; flex-direction: column; gap: 9px; }
+    .sub-item {
+      display: flex; align-items: flex-start; gap: 10px;
+      cursor: pointer; user-select: none;
+    }
+    .sub-checkbox {
+      flex-shrink: 0;
+      width: 17px; height: 17px;
+      border-radius: 5px;
+      border: 1.5px solid var(--line);
+      margin-top: 2px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--surface);
+      transition: all .15s;
+    }
+    .sub-checkbox.checked { background: var(--accent); border-color: var(--accent); }
+    .sub-checkbox svg { width: 10px; height: 10px; opacity: 0; }
+    .sub-checkbox.checked svg { opacity: 1; }
+
+    .sub-text { font-size: 13px; line-height: 1.4; color: var(--ink); }
+    .sub-text.done { color: var(--ink-soft); text-decoration: line-through; text-decoration-color: var(--line); }
+
+    .note {
+      font-size: 12px; color: var(--warn);
+      background: var(--warn-soft);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-bottom: 4px;
+      line-height: 1.4;
+    }
+
+    .reset-row { padding: 20px 20px 0; text-align: center; }
+    .reset-btn {
+      background: none; border: none;
+      color: var(--ink-soft); font-size: 12px;
+      text-decoration: underline; cursor: pointer;
+      padding: 8px; font-family: inherit;
+    }
+
+    /* ── DASHBOARD ───────────────────────────────── */
+    .dash-content { padding: 16px 20px 0; }
+
+    .section-label {
+      font-size: 11px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      font-weight: 700;
+      margin-bottom: 12px;
+      margin-top: 24px;
+    }
+    .section-label:first-child { margin-top: 0; }
+
+    /* dash tabs */
+    .dash-tabs {
+      display: flex;
+      gap: 6px;
+      background: var(--accent-soft);
+      border-radius: 10px;
+      padding: 4px;
+    }
+    .dash-tab {
+      flex: 1;
+      text-align: center;
+      padding: 8px 4px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      transition: background .15s;
+    }
+    .dash-tab.active { background: var(--accent); color: #fff; }
+
+    /* stat cards */
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 4px; }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px 8px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 26px; font-weight: 700;
+      color: var(--accent); letter-spacing: -.02em;
+      line-height: 1; margin-bottom: 5px;
+    }
+    .stat-value.warn { color: var(--warn); font-size: 14px; padding-top: 4px; }
+    .stat-label {
+      font-size: 10px; color: var(--ink-soft); font-weight: 600;
+      text-transform: uppercase; letter-spacing: .05em; line-height: 1.35;
+    }
+
+    /* trend chart */
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 8px;
+    }
+
+    /* item deficit bars */
+    .ibar-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 8px;
+    }
+    .ibar-head { display: flex; align-items: baseline; gap: 6px; margin-bottom: 8px; }
+    .ibar-tag {
+      font-size: 10px; font-weight: 700; letter-spacing: .06em;
+      text-transform: uppercase; padding: 2px 6px;
+      border-radius: 4px; flex-shrink: 0;
+    }
+    .tag-parent { background: var(--accent-soft); color: var(--accent); }
+    .tag-sub { background: var(--line); color: var(--ink-soft); }
+    .ibar-label { font-size: 13px; font-weight: 500; color: var(--ink); line-height: 1.35; }
+    .ibar-row { display: flex; align-items: center; gap: 8px; }
+    .ibar-track { flex: 1; height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+    .ibar-fill { height: 100%; border-radius: 99px; transition: width .4s ease; }
+    .fill-ok  { background: var(--accent); }
+    .fill-mid { background: #C9A52A; }
+    .fill-bad { background: var(--warn); }
+    .ibar-pct { font-size: 12px; font-weight: 700; min-width: 36px; text-align: right; }
+    .pct-ok  { color: var(--accent); }
+    .pct-mid { color: #8B6914; }
+    .pct-bad { color: var(--warn); }
+
+    /* empty state */
+    .empty {
+      text-align: center; padding: 48px 20px;
+      color: var(--ink-soft);
+    }
+    .empty-icon { font-size: 44px; margin-bottom: 14px; }
+    .empty-title { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+    .empty-body { font-size: 13px; line-height: 1.6; }
+
+    /* toast */
+    .toast {
+      position: fixed;
+      bottom: calc(var(--nav-h) + 14px);
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: var(--ink);
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 99px;
+      font-size: 13px; font-weight: 500;
+      z-index: 300;
+      transition: transform .28s cubic-bezier(.34,1.56,.64,1);
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* history export button */
+    .export-btn {
+      display: block;
+      margin: 0 auto 8px;
+      background: none;
+      border: 1.5px solid var(--line);
+      color: var(--ink-soft);
+      font-size: 12px; font-weight: 600;
+      padding: 8px 18px;
+      border-radius: 99px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: border-color .15s, color .15s;
+    }
+    .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════════════════
+const ITEMS = {
+  daily: [
+    {
+      id: 'd0', label: 'Check list da loja — ronda',
+      sub: ['Limpeza geral', 'Organização do salão e recepção', 'Sinalização e materiais no lugar']
+    },
+    {
+      id: 'd1', label: 'Agendamento — monitorar fluxo de passagem',
+      note: 'Parâmetro: 8 a 10 carros/dia, sendo 2 à tarde',
+      sub: [
+        'Quantos carros vieram hoje',
+        'Quantos não vieram — motivo e contato p/ reagendamento',
+        'Monitorar agenda dos próximos 2 dias',
+        'Antecipar agenda se necessário (núcleo)'
+      ]
+    },
+    {
+      id: 'd2', label: 'Acompanhar faturamento de peças e serviço',
+      sub: ['Está faturando todo dia?', 'Meta mensal e diária', 'Metas individuais — diária e mensal']
+    },
+    {
+      id: 'd3', label: 'Acompanhar margem por canais',
+      sub: ['Serviços — entre 5% e 6%', 'Peças — acima de 6%']
+    },
+    {
+      id: 'd4', label: 'Acompanhar oficina digital',
+      sub: ['Conversão de pacotes e agregados (orçamentos)', 'Histórico de checklist — estão fechando?']
+    },
+    {
+      id: 'd5', label: 'NPS',
+      sub: ['Meta do período', 'Progressão acompanhada', 'Incentivos e plano de conversão', 'Detratoras — plano de ação']
+    }
+  ],
+  weekly: [
+    { id: 'w0', label: 'Revisar processos de garantia', sub: ['Pendências ou itens represados'] },
+    { id: 'w1', label: 'Acompanhamento do ponto dos funcionários' },
+    { id: 'w2', label: 'Organização e limpeza da loja' },
+    { id: 'w3', label: 'Checklist pessoal do PDV', sub: ['Material de trabalho', 'Estrutura do posto'] },
+    { id: 'w4', label: 'Organização e limpeza da oficina' }
+  ],
+  monthly: [
+    { id: 'm0', label: 'Análise das informações gerenciais' },
+    { id: 'm1', label: 'Custos, despesas e razão' }
+  ]
+};
+
+// ═══════════════════════════════════════════════════════════
+//  DATE HELPERS
+// ═══════════════════════════════════════════════════════════
+function todayKey() { return new Date().toISOString().slice(0, 10); }
+
+function weekKey() {
+  const d = new Date();
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const w = Math.ceil((((d - jan1) / 86400000) + jan1.getDay() + 1) / 7);
+  return d.getFullYear() + '-W' + String(w).padStart(2, '0');
+}
+
+function monthKey() { return new Date().toISOString().slice(0, 7); }
+
+function currentPeriod(type) {
+  if (type === 'daily') return todayKey();
+  if (type === 'weekly') return weekKey();
+  return monthKey();
+}
+
+function labelPeriod(type, p) {
+  if (type === 'daily') {
+    const [y, m, d] = p.split('-');
+    return `${d}/${m}`;
+  }
+  if (type === 'weekly') return 'S' + p.split('-W')[1];
+  const months = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  return months[parseInt(p.split('-')[1]) - 1];
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STORAGE (localStorage)
+// ═══════════════════════════════════════════════════════════
+function lsGet(key, fallback = null) {
+  try { const v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : fallback; }
+  catch(e) { return fallback; }
+}
+function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+}
+
+const SKEYS = {
+  state:   (type, period) => `pgv:s:${type}:${period}`,
+  history: (type)         => `pgv:h:${type}`,
+  lastPeriod: (type)      => `pgv:lp:${type}`,
+};
+
+function calcRecord(type, period, state) {
+  let total = 0;
+  ITEMS[type].forEach(it => { total++; if (it.sub) total += it.sub.length; });
+  const done = Object.values(state).filter(Boolean).length;
+  return { period, state: {...state}, done, total, pct: total ? Math.round(done / total * 100) : 0 };
+}
+
+function pushHistory(type, period, state) {
+  const key = SKEYS.history(type);
+  const hist = lsGet(key, []);
+  const idx = hist.findIndex(h => h.period === period);
+  const rec = calcRecord(type, period, state);
+  if (idx >= 0) hist[idx] = rec; else hist.push(rec);
+  // keep sorted, last 120 records
+  hist.sort((a, b) => a.period.localeCompare(b.period));
+  if (hist.length > 120) hist.splice(0, hist.length - 120);
+  lsSet(key, hist);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  AUTO-RESET ON NEW PERIOD
+//  State keys are period-keyed → naturally empty on a new day.
+//  We just need to detect period change and ensure last day's
+//  data is in history (even if user forgot to toggle anything).
+// ═══════════════════════════════════════════════════════════
+function autoReset() {
+  ['daily', 'weekly', 'monthly'].forEach(type => {
+    const now = currentPeriod(type);
+    const last = lsGet(SKEYS.lastPeriod(type));
+    if (last && last !== now) {
+      // Archive the previous period's final state (may already be in history via live updates)
+      const prevState = lsGet(SKEYS.state(type, last), {});
+      pushHistory(type, last, prevState);
+      showToast('✔ Checklist do dia anterior salvo no histórico');
+    }
+    lsSet(SKEYS.lastPeriod(type), now);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  APP STATE
+// ═══════════════════════════════════════════════════════════
+const APP = {
+  view: 'checklist',   // 'checklist' | 'dashboard'
+  tab: 'daily',        // checklist tab
+  dashTab: 'daily',    // dashboard filter
+  state: {},           // current period checked items
+  chartInst: null,
+};
+
+function loadTabState() {
+  APP.state = lsGet(SKEYS.state(APP.tab, currentPeriod(APP.tab)), {});
+}
+
+function saveTabState() {
+  lsSet(SKEYS.state(APP.tab, currentPeriod(APP.tab)), APP.state);
+  pushHistory(APP.tab, currentPeriod(APP.tab), APP.state); // live update
+}
+
+function toggle(id) {
+  APP.state[id] = !APP.state[id];
+  saveTabState();
+  renderChecklist();
+}
+
+function resetCurrentTab() {
+  if (!confirm('Reiniciar o progresso desta lista?\n\nO histórico será mantido — apenas o progresso atual será zerado.')) return;
+  APP.state = {};
+  saveTabState();
+  renderChecklist();
+  showToast('Lista reiniciada');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════════
+function esc(s) {
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
+function checkSvg(sz = 13) {
+  return `<svg width="${sz}" height="${sz}" viewBox="0 0 16 16" fill="none">
+    <path d="M3 8.5L6 11.5L13 4.5" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2600);
+}
+function countTotal(type) {
+  let n = 0;
+  ITEMS[type].forEach(it => { n++; if (it.sub) n += it.sub.length; });
+  return n;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  BOTTOM NAV (shared)
+// ═══════════════════════════════════════════════════════════
+function bnavHtml() {
+  const isCheck = APP.view === 'checklist';
+  return `
+    <div class="bnav">
+      <button class="bnav-btn${isCheck ? ' active' : ''}" data-view="checklist">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 11l3 3L22 4"/>
+          <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+        </svg>
+        Checklist
+      </button>
+      <button class="bnav-btn${!isCheck ? ' active' : ''}" data-view="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"/>
+          <line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        Dashboard
+      </button>
+    </div>`;
+}
+
+function bindNav() {
+  document.querySelectorAll('[data-view]').forEach(el => {
+    el.addEventListener('click', () => {
+      APP.view = el.dataset.view;
+      APP.view === 'checklist' ? renderChecklist() : renderDashboard();
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER: CHECKLIST VIEW
+// ═══════════════════════════════════════════════════════════
+function renderChecklist() {
+  const items = ITEMS[APP.tab];
+  const total = countTotal(APP.tab);
+  const done = Object.values(APP.state).filter(Boolean).length;
+  const pct = total ? Math.round(done / total * 100) : 0;
+
+  const TITLES = { daily: 'Checklist diário', weekly: 'Checklist semanal', monthly: 'Checklist mensal' };
+  const TAB_LABELS = { daily: 'Diário', weekly: 'Semanal', monthly: 'Mensal' };
+
+  // date label
+  let dateLine = '';
+  if (APP.tab === 'daily') {
+    dateLine = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'long' });
+  } else if (APP.tab === 'weekly') {
+    dateLine = weekKey().replace('-W', ' · Semana ');
+  } else {
+    const months = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const [y, m] = monthKey().split('-');
+    dateLine = `${months[+m - 1]} de ${y}`;
+  }
+
+  const tabsHtml = ['daily','weekly','monthly'].map(t =>
+    `<button class="tab${APP.tab===t?' active':''}" data-tab="${t}">${TAB_LABELS[t]}</button>`
+  ).join('');
+
+  const cardsHtml = items.map((item, idx) => {
+    const isDone = !!APP.state[item.id];
+    let subHtml = '';
+    if (item.note || item.sub) {
+      let inner = item.note ? `<div class="note">${esc(item.note)}</div>` : '';
+      if (item.sub) {
+        inner += item.sub.map((s, si) => {
+          const sid = item.id + '-' + si;
+          const sdone = !!APP.state[sid];
+          return `<div class="sub-item" data-toggle="${sid}">
+            <div class="sub-checkbox${sdone?' checked':''}">${checkSvg(10)}</div>
+            <div class="sub-text${sdone?' done':''}">${esc(s)}</div>
+          </div>`;
+        }).join('');
+      }
+      subHtml = `<div class="sub-list">${inner}</div>`;
+    }
+    return `
+      <div class="card${isDone?' done':''}">
+        <div class="card-main" data-toggle="${item.id}">
+          <div class="checkbox${isDone?' checked':''}">${checkSvg()}</div>
+          <div class="item-text${isDone?' done':''}">${idx+1}. ${esc(item.label)}</div>
+        </div>
+        ${subHtml}
+      </div>`;
+  }).join('');
+
+  document.getElementById('app').innerHTML = `
+    <div class="header">
+      <div class="eyebrow">Pós-venda · Rotina do gestor</div>
+      <h1 class="page-title">${TITLES[APP.tab]}</h1>
+      <div class="tabs">${tabsHtml}</div>
+      <div class="progress-row">
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="progress-label">${done}/${total}</div>
+      </div>
+    </div>
+    <div class="date-label">${dateLine}</div>
+    <div class="content">${cardsHtml}</div>
+    <div class="reset-row">
+      <button class="reset-btn" id="reset-btn">Reiniciar progresso desta lista</button>
+    </div>
+    ${bnavHtml()}
+  `;
+
+  document.querySelectorAll('[data-tab]').forEach(el =>
+    el.addEventListener('click', () => { APP.tab = el.dataset.tab; loadTabState(); renderChecklist(); })
+  );
+  document.querySelectorAll('[data-toggle]').forEach(el =>
+    el.addEventListener('click', e => { e.stopPropagation(); toggle(el.dataset.toggle); })
+  );
+  document.getElementById('reset-btn')?.addEventListener('click', resetCurrentTab);
+  bindNav();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER: DASHBOARD VIEW
+// ═══════════════════════════════════════════════════════════
+function buildItemStats(type) {
+  const hist = lsGet(SKEYS.history(type), []);
+  if (!hist.length) return null;
+
+  const result = [];
+  ITEMS[type].forEach(item => {
+    const rows = [{ id: item.id, label: item.label, parent: true }];
+    if (item.sub) item.sub.forEach((s, si) => rows.push({ id: item.id+'-'+si, label: s, parent: false }));
+    rows.forEach(r => {
+      const tot = hist.length;
+      const done = hist.filter(h => !!h.state[r.id]).length;
+      const pct = Math.round(done / tot * 100);
+      result.push({ ...r, done, total: tot, pct });
+    });
+  });
+  return result.sort((a, b) => a.pct - b.pct); // worst first
+}
+
+function renderDashboard() {
+  const type = APP.dashTab;
+  const hist = lsGet(SKEYS.history(type), []);
+  const itemStats = buildItemStats(type);
+
+  const TAB_LABELS = { daily: 'Diário', weekly: 'Semanal', monthly: 'Mensal' };
+  const dashTabsHtml = ['daily','weekly','monthly'].map(t =>
+    `<button class="dash-tab${APP.dashTab===t?' active':''}" data-dash="${t}">${TAB_LABELS[t]}</button>`
+  ).join('');
+
+  let body = '';
+
+  if (!hist.length || !itemStats) {
+    body = `
+      <div class="empty">
+        <div class="empty-icon">📊</div>
+        <div class="empty-title">Nenhum dado ainda</div>
+        <div class="empty-body">Complete o checklist ao longo do dia.<br>
+        Os dados aparecerão aqui após o primeiro período registrado.</div>
+      </div>`;
+  } else {
+    // ── Overview stats
+    const avgPct = Math.round(hist.reduce((s, h) => s + h.pct, 0) / hist.length);
+    const worst = itemStats[0];
+    const shortWorst = worst.label.length > 22 ? worst.label.slice(0, 22) + '…' : worst.label;
+    const PTYPE = { daily: 'dias', weekly: 'semanas', monthly: 'meses' };
+
+    body += `
+      <div class="section-label">Resumo geral</div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">${hist.length}</div>
+          <div class="stat-label">${PTYPE[type]} registrados</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value">${avgPct}%</div>
+          <div class="stat-label">Conclusão média</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value warn">${shortWorst}</div>
+          <div class="stat-label">Maior déficit</div>
+        </div>
+      </div>`;
+
+    // ── Trend chart (last 20 periods)
+    const trend = hist.slice(-20);
+    if (trend.length > 1) {
+      const PERIOD_LABEL = { daily: 'dias', weekly: 'semanas', monthly: 'meses' };
+      body += `
+        <div class="section-label">Tendência — últimos ${trend.length} ${PERIOD_LABEL[type]}</div>
+        <div class="chart-card">
+          <canvas id="trend-chart" height="140"></canvas>
+        </div>`;
+    }
+
+    // ── Item deficit bars
+    body += `<div class="section-label">Déficit por item — piores primeiro</div>`;
+    itemStats.forEach(item => {
+      const fc = item.pct >= 70 ? 'fill-ok' : item.pct >= 40 ? 'fill-mid' : 'fill-bad';
+      const pc = item.pct >= 70 ? 'pct-ok' : item.pct >= 40 ? 'pct-mid' : 'pct-bad';
+      body += `
+        <div class="ibar-card">
+          <div class="ibar-head">
+            <span class="ibar-tag ${item.parent ? 'tag-parent' : 'tag-sub'}">${item.parent ? 'Item' : 'Sub'}</span>
+            <span class="ibar-label">${esc(item.label)}</span>
+          </div>
+          <div class="ibar-row">
+            <div class="ibar-track"><div class="ibar-fill ${fc}" style="width:${item.pct}%"></div></div>
+            <div class="ibar-pct ${pc}">${item.pct}%</div>
+          </div>
+        </div>`;
+    });
+
+    // ── Export
+    body += `
+      <div style="padding-top:16px; padding-bottom:8px;">
+        <button class="export-btn" id="export-btn">⬇ Exportar histórico (.json)</button>
+      </div>`;
+  }
+
+  document.getElementById('app').innerHTML = `
+    <div class="header">
+      <div class="eyebrow">Pós-venda · Rotina do gestor</div>
+      <h1 class="page-title">Dashboard</h1>
+      <div class="dash-tabs">${dashTabsHtml}</div>
+    </div>
+    <div class="dash-content">${body}</div>
+    ${bnavHtml()}
+  `;
+
+  // Render trend chart
+  if (hist.length > 1) {
+    const trend = hist.slice(-20);
+    const canvas = document.getElementById('trend-chart');
+    if (canvas) {
+      if (APP.chartInst) { APP.chartInst.destroy(); APP.chartInst = null; }
+      const labels = trend.map(h => labelPeriod(type, h.period));
+      const data = trend.map(h => h.pct);
+      const avgLine = new Array(data.length).fill(Math.round(data.reduce((a,b)=>a+b,0)/data.length));
+
+      APP.chartInst = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Conclusão',
+              data,
+              borderColor: '#2B5D4F',
+              backgroundColor: 'rgba(43,93,79,.08)',
+              borderWidth: 2,
+              fill: true,
+              tension: .35,
+              pointBackgroundColor: data.map(v => v < 50 ? '#B5562F' : '#2B5D4F'),
+              pointRadius: 4,
+              pointHoverRadius: 6,
+            },
+            {
+              label: 'Média',
+              data: avgLine,
+              borderColor: '#C9A52A',
+              borderWidth: 1.5,
+              borderDash: [5,4],
+              pointRadius: 0,
+              fill: false,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          interaction: { intersect: false, mode: 'index' },
+          scales: {
+            y: {
+              min: 0, max: 100,
+              ticks: { callback: v => v+'%', font:{size:10}, color:'#6B6B66', maxTicksLimit: 6 },
+              grid: { color: '#E8E6E1' }
+            },
+            x: {
+              ticks: { font:{size:10}, color:'#6B6B66' },
+              grid: { display: false }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => `${ctx.dataset.label}: ${ctx.raw}%`
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  // Event bindings
+  document.querySelectorAll('[data-dash]').forEach(el =>
+    el.addEventListener('click', () => { APP.dashTab = el.dataset.dash; renderDashboard(); })
+  );
+  document.getElementById('export-btn')?.addEventListener('click', exportHistory);
+  bindNav();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════════════════════
+function exportHistory() {
+  const data = {
+    exportedAt: new Date().toISOString(),
+    daily: lsGet(SKEYS.history('daily'), []),
+    weekly: lsGet(SKEYS.history('weekly'), []),
+    monthly: lsGet(SKEYS.history('monthly'), []),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `historico-pos-venda-${todayKey()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Histórico exportado');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+autoReset();
+loadTabState();
+renderChecklist();
+</script>
+</body>
+</html>
